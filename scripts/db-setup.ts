@@ -8,6 +8,8 @@
  * Variáveis: as mesmas da API (.env), mais SEED_SENHA_PADRAO.
  * DB_CRIAR_BANCO=false pula o CREATE DATABASE (ex.: Azure SQL, onde
  * o banco é criado pelo portal).
+ * ENV_FILE escolhe outro arquivo, ex. no PowerShell:
+ *   $env:ENV_FILE='.env.azure'; npm run db:setup
  */
 import { config as carregarEnv } from 'dotenv';
 import * as bcrypt from 'bcryptjs';
@@ -17,7 +19,9 @@ import * as sql from 'mssql';
 import { configuracaoBanco } from '../src/config/ambiente';
 
 carregarEnv({
-  path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
+  path:
+    process.env.ENV_FILE ??
+    (process.env.NODE_ENV === 'test' ? '.env.test' : '.env'),
   quiet: true,
 });
 
@@ -31,6 +35,8 @@ function conectar(database: string) {
     user: db.username,
     password: db.password,
     database,
+    // Azure SQL serverless pausado leva ~1 min para "acordar"
+    connectionTimeout: 60_000,
     options: {
       encrypt: db.encrypt,
       trustServerCertificate: db.trustServerCertificate,
@@ -57,7 +63,8 @@ function ehLoteDoBanco(lote: string): boolean {
 
 export async function prepararBanco(opcoes: { recriar?: boolean } = {}) {
   const { database } = configuracaoBanco();
-  if (!/^\w+$/.test(database))
+  // Hífen é permitido (nomes do portal Azure); o nome sempre vai entre colchetes
+  if (!/^[\w-]+$/.test(database))
     throw new Error(`Nome de banco inválido: ${database}`);
 
   if (process.env.DB_CRIAR_BANCO !== 'false') {

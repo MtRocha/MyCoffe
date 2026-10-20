@@ -43,6 +43,9 @@ export function opcoesTypeOrm(): TypeOrmModuleOptions {
     autoLoadEntities: true,
     // O schema vem do script SQL (database/), nunca do TypeORM
     synchronize: false,
+    // Azure SQL serverless pausado leva ~1 min para "acordar"
+    connectionTimeout: 60_000,
+    retryAttempts: 5,
     options: {
       encrypt: db.encrypt,
       trustServerCertificate: db.trustServerCertificate,
