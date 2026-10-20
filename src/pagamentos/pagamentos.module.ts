@@ -1,25 +1,7 @@
-import { Controller, Get, Module } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Publico } from '../common/decorators';
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { FormaPagamento } from './forma-pagamento.entity';
-
-@ApiTags('Pagamento')
-@Controller('formas-pagamento')
-export class FormasPagamentoController {
-  constructor(
-    @InjectRepository(FormaPagamento)
-    private readonly formas: Repository<FormaPagamento>,
-  ) {}
-
-  /** Formas de pagamento disponíveis no checkout. */
-  @Publico()
-  @Get()
-  listar() {
-    return this.formas.find({ where: { ativo: true }, order: { id: 'ASC' } });
-  }
-}
+import { FormasPagamentoController } from './pagamentos.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([FormaPagamento])],

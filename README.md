@@ -59,6 +59,17 @@ O schema vem **só** do script `database/mycoffee_sqlserver.sql` (DER em `databa
 
 Equipe = papéis `FUNCIONARIO` e `ADMIN`. Rotas protegidas usam o header `Authorization: Bearer <token>`.
 
+### Swagger / OpenAPI
+
+- Interativo: `/docs` em qualquer instância da API (JSON em `/docs-json`, YAML em `/docs-yaml`).
+- Arquivos: [`docs/openapi.json`](docs/openapi.json) e [`docs/openapi.yaml`](docs/openapi.yaml), para importar no Postman/Insomnia ou gerar o cliente do app. Regenere após mudar rotas ou DTOs (não precisa de banco):
+
+```bash
+npm run openapi
+```
+
+Para incluir a URL pública na lista de servidores: `OPENAPI_SERVERS=https://sua-api.azurewebsites.net,http://localhost:3000 npm run openapi`.
+
 ## Testes
 
 ```bash

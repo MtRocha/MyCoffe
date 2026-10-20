@@ -10,6 +10,7 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 import { UsuarioAutenticado } from '../common/decorators';
 import { ehViolacaoDeUnicidade } from '../common/erros-sql';
 import { AtualizarUsuarioDto } from './dto/atualizar-usuario.dto';
+import { UsuarioRespostaDto } from './dto/usuario-resposta.dto';
 import { Papel, Usuario } from './usuario.entity';
 
 export interface NovoUsuario {
@@ -19,7 +20,7 @@ export interface NovoUsuario {
   telefone?: string | null;
 }
 
-export type UsuarioResposta = Omit<Usuario, 'senhaHash'>;
+export type UsuarioResposta = UsuarioRespostaDto;
 
 export function paraUsuarioResposta(u: Usuario): UsuarioResposta {
   return {

@@ -13,7 +13,12 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 import { Cafe } from '../cafes/cafe.entity';
 import { ehEquipe, UsuarioAutenticado } from '../common/decorators';
 import { FormaPagamento } from '../pagamentos/forma-pagamento.entity';
+import { Papel } from '../usuarios/usuario.entity';
 import { CriarPedidoDto, FiltroPedidosDto } from './dto/pedido.dto';
+import {
+  EventoHistoricoDto,
+  PedidoRespostaDto,
+} from './dto/pedido-resposta.dto';
 import { EnderecoEntrega } from './endereco-entrega.entity';
 import { ItemPedido } from './item-pedido.entity';
 import { Pedido, StatusPedido } from './pedido.entity';
@@ -23,39 +28,9 @@ import {
   podeMudarStatus,
 } from './pedido.regras';
 
-export interface PedidoResposta {
-  codigo: string;
-  status: StatusPedido;
-  criadoEm: Date;
-  subtotal: number;
-  taxaEntrega: number;
-  total: number;
-  previsaoMin: number;
-  previsaoMax: number;
-  formaPagamento: { id: number; codigo: string; descricao: string };
-  itens: {
-    cafeId: number;
-    nome: string;
-    imagemUrl: string;
-    quantidade: number;
-    precoUnitario: number;
-    subtotal: number;
-  }[];
-  endereco: Omit<EnderecoEntrega, 'pedidoId' | 'pedido'> | null;
-  cliente?: {
-    id: number;
-    nome: string;
-    email: string;
-    telefone: string | null;
-  };
-}
-
-export interface EventoHistorico {
-  status: StatusPedido;
-  statusAnterior: StatusPedido | null;
-  dataHora: Date;
-  alteradoPor: { id: number; nome: string; papel: string } | null;
-}
+// Classes de resposta ficam em dto/ para o plugin do Swagger documentá-las
+export type PedidoResposta = PedidoRespostaDto;
+export type EventoHistorico = EventoHistoricoDto;
 
 export function paraPedidoResposta(
   p: Pedido,
@@ -248,7 +223,7 @@ export class PedidosService {
       para: StatusPedido;
       usuarioId: number | null;
       usuarioNome: string | null;
-      usuarioPapel: string | null;
+      usuarioPapel: Papel | null;
     }[] = await this.pedidos.query(
       `SELECT l.data_hora AS dataHora,
               JSON_VALUE(l.dados_antigos, '$.status') AS de,

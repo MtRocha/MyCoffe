@@ -1,0 +1,1747 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_verificar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Usado pela hospedagem para saber se a API e o banco estão no ar. Banco fora = 503.",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/auth/cadastro": {
+      "post": {
+        "operationId": "AuthController_cadastrar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CadastroDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaAutenticacaoDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Cria uma conta de cliente e já devolve o token.",
+        "tags": [
+          "Autenticação"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaAutenticacaoDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Autenticação"
+        ]
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsuarioRespostaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Dados do usuário dono do token.",
+        "tags": [
+          "Autenticação"
+        ]
+      }
+    },
+    "/usuarios": {
+      "get": {
+        "operationId": "UsuariosController_listar",
+        "parameters": [
+          {
+            "name": "papel",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CLIENTE",
+                "FUNCIONARIO",
+                "ADMIN"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UsuarioRespostaDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Usuários (admin)"
+        ]
+      }
+    },
+    "/usuarios/{id}": {
+      "get": {
+        "operationId": "UsuariosController_buscar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsuarioRespostaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Usuários (admin)"
+        ]
+      },
+      "patch": {
+        "operationId": "UsuariosController_atualizar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarUsuarioDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsuarioRespostaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Usuários (admin)"
+        ]
+      }
+    },
+    "/cafes": {
+      "get": {
+        "operationId": "CafesController_listar",
+        "parameters": [
+          {
+            "name": "tag",
+            "required": false,
+            "in": "query",
+            "description": "Nome da tag.",
+            "schema": {
+              "maxLength": 30,
+              "example": "Gelado",
+              "type": "string"
+            }
+          },
+          {
+            "name": "busca",
+            "required": false,
+            "in": "query",
+            "description": "Busca por parte do nome.",
+            "schema": {
+              "maxLength": 60,
+              "example": "expresso",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Cafe"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Catálogo público (somente cafés ativos).",
+        "tags": [
+          "Catálogo"
+        ]
+      },
+      "post": {
+        "operationId": "CafesController_criar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarCafeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cafe"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Catálogo"
+        ]
+      }
+    },
+    "/cafes/recomendacoes": {
+      "get": {
+        "operationId": "CafesController_recomendacoes",
+        "parameters": [
+          {
+            "name": "limite",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 14,
+              "default": 3,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Cafe"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Recomendação de cafés: os mais vendidos.",
+        "tags": [
+          "Catálogo"
+        ]
+      }
+    },
+    "/cafes/gestao": {
+      "get": {
+        "operationId": "CafesController_listarGestao",
+        "parameters": [
+          {
+            "name": "tag",
+            "required": false,
+            "in": "query",
+            "description": "Nome da tag.",
+            "schema": {
+              "maxLength": 30,
+              "example": "Gelado",
+              "type": "string"
+            }
+          },
+          {
+            "name": "busca",
+            "required": false,
+            "in": "query",
+            "description": "Busca por parte do nome.",
+            "schema": {
+              "maxLength": 60,
+              "example": "expresso",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Cafe"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Catálogo completo, incluindo inativos (equipe).",
+        "tags": [
+          "Catálogo"
+        ]
+      }
+    },
+    "/cafes/{id}": {
+      "get": {
+        "operationId": "CafesController_buscar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cafe"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Catálogo"
+        ]
+      },
+      "patch": {
+        "operationId": "CafesController_atualizar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarCafeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cafe"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Catálogo"
+        ]
+      },
+      "delete": {
+        "operationId": "CafesController_desativar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Exclusão lógica (ativo = 0).",
+        "tags": [
+          "Catálogo"
+        ]
+      }
+    },
+    "/tags": {
+      "get": {
+        "operationId": "TagsController_listar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Tag"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Catálogo"
+        ]
+      },
+      "post": {
+        "operationId": "TagsController_criar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarTagDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tag"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Catálogo"
+        ]
+      }
+    },
+    "/formas-pagamento": {
+      "get": {
+        "operationId": "FormasPagamentoController_listar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FormaPagamento"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Formas de pagamento disponíveis no checkout.",
+        "tags": [
+          "Pagamento"
+        ]
+      }
+    },
+    "/pedidos": {
+      "post": {
+        "operationId": "PedidosController_criar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarPedidoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PedidoRespostaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Checkout: cria o pedido do usuário autenticado. Os preços vêm do banco.",
+        "tags": [
+          "Pedidos"
+        ]
+      },
+      "get": {
+        "operationId": "PedidosController_listar",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CONFIRMADO",
+                "EM_PREPARO",
+                "SAIU_PARA_ENTREGA",
+                "ENTREGUE",
+                "CANCELADO"
+              ]
+            }
+          },
+          {
+            "name": "pagina",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limite",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PedidoRespostaDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Painel da equipe (FUNCIONARIO/ADMIN). Inclui os dados do cliente.",
+        "tags": [
+          "Pedidos"
+        ]
+      }
+    },
+    "/pedidos/meus": {
+      "get": {
+        "operationId": "PedidosController_meus",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CONFIRMADO",
+                "EM_PREPARO",
+                "SAIU_PARA_ENTREGA",
+                "ENTREGUE",
+                "CANCELADO"
+              ]
+            }
+          },
+          {
+            "name": "pagina",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limite",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PedidoRespostaDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "\"Meus pedidos\", do mais recente para o mais antigo.",
+        "tags": [
+          "Pedidos"
+        ]
+      }
+    },
+    "/pedidos/{codigo}": {
+      "get": {
+        "operationId": "PedidosController_detalhar",
+        "parameters": [
+          {
+            "name": "codigo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PedidoRespostaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Tela de confirmação, pelo código público do pedido (dono ou equipe).",
+        "tags": [
+          "Pedidos"
+        ]
+      }
+    },
+    "/pedidos/{codigo}/historico": {
+      "get": {
+        "operationId": "PedidosController_historico",
+        "parameters": [
+          {
+            "name": "codigo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventoHistoricoDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Linha do tempo de status, com quem fez cada mudança (dono ou equipe).",
+        "tags": [
+          "Pedidos"
+        ]
+      }
+    },
+    "/pedidos/{codigo}/status": {
+      "patch": {
+        "operationId": "PedidosController_atualizarStatus",
+        "parameters": [
+          {
+            "name": "codigo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PedidoRespostaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Equipe avança o status (CONFIRMADO → EM_PREPARO → SAIU_PARA_ENTREGA → ENTREGUE). Transição inválida = 409.",
+        "tags": [
+          "Pedidos"
+        ]
+      }
+    },
+    "/pedidos/{codigo}/cancelar": {
+      "post": {
+        "operationId": "PedidosController_cancelar",
+        "parameters": [
+          {
+            "name": "codigo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PedidoRespostaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cliente cancela o próprio pedido enquanto ainda está CONFIRMADO.",
+        "tags": [
+          "Pedidos"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "MyCoffee API",
+    "description": "API do aplicativo mobile de cafeteria MyCoffee: catálogo, autenticação, carrinho/checkout e pedidos.\n\n**Autenticação:** faça `POST /auth/login` (ou `/auth/cadastro`), copie o `accessToken` e clique em **Authorize**.\nAs rotas sem cadeado são públicas.\n\n**Papéis:** CLIENTE (padrão do cadastro), FUNCIONARIO e ADMIN. \"Equipe\" = FUNCIONARIO ou ADMIN.\n\n**Fluxo do pedido:** CONFIRMADO → EM_PREPARO → SAIU_PARA_ENTREGA → ENTREGUE.\nO cliente pode cancelar enquanto o pedido está CONFIRMADO; a equipe, até EM_PREPARO.\n\n**Erros:** respostas no formato `{ \"statusCode\", \"message\", \"error\" }`. 400 = dados inválidos,\n401 = sem token ou token inválido, 403 = papel sem permissão, 404 = não encontrado, 409 = conflito.",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Autenticação",
+      "description": "Cadastro, login e dados do usuário logado"
+    },
+    {
+      "name": "Catálogo",
+      "description": "Cafés, tags e recomendações"
+    },
+    {
+      "name": "Pagamento",
+      "description": "Formas de pagamento do checkout"
+    },
+    {
+      "name": "Pedidos",
+      "description": "Checkout, acompanhamento e painel da equipe"
+    },
+    {
+      "name": "Usuários (admin)",
+      "description": "Gestão de papéis e acesso"
+    },
+    {
+      "name": "Health",
+      "description": "Monitoramento"
+    }
+  ],
+  "servers": [
+    {
+      "url": "http://localhost:3000"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "HealthDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CadastroDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "example": "Maria Silva",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "example": "maria@email.com",
+            "maxLength": 254,
+            "format": "email"
+          },
+          "senha": {
+            "type": "string",
+            "description": "Mínimo 8 caracteres, com letras e números.",
+            "minLength": 8,
+            "maxLength": 72,
+            "pattern": "(?=.*[A-Za-z])(?=.*\\d)"
+          },
+          "telefone": {
+            "type": "string",
+            "description": "Apenas dígitos: DDD + número.",
+            "example": "11988887777",
+            "pattern": "^\\d{10,11}$"
+          }
+        },
+        "required": [
+          "nome",
+          "email",
+          "senha"
+        ]
+      },
+      "UsuarioRespostaDto": {
+        "type": "object",
+        "properties": {
+          "papel": {
+            "enum": [
+              "CLIENTE",
+              "FUNCIONARIO",
+              "ADMIN"
+            ],
+            "type": "string",
+            "example": "CLIENTE"
+          },
+          "id": {
+            "type": "number",
+            "example": 3
+          },
+          "nome": {
+            "type": "string",
+            "example": "Cliente Exemplo"
+          },
+          "email": {
+            "type": "string",
+            "example": "cliente@email.com"
+          },
+          "telefone": {
+            "type": "string",
+            "nullable": true,
+            "example": "11988887777"
+          },
+          "ativo": {
+            "type": "boolean"
+          },
+          "ultimoLoginEm": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "criadoEm": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "atualizadoEm": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "papel",
+          "id",
+          "nome",
+          "email",
+          "telefone",
+          "ativo",
+          "ultimoLoginEm",
+          "criadoEm",
+          "atualizadoEm"
+        ]
+      },
+      "RespostaAutenticacaoDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT para o header Authorization: Bearer <token>."
+          },
+          "usuario": {
+            "$ref": "#/components/schemas/UsuarioRespostaDto"
+          }
+        },
+        "required": [
+          "accessToken",
+          "usuario"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "cliente@email.com",
+            "format": "email"
+          },
+          "senha": {
+            "type": "string",
+            "maxLength": 72
+          }
+        },
+        "required": [
+          "email",
+          "senha"
+        ]
+      },
+      "AtualizarUsuarioDto": {
+        "type": "object",
+        "properties": {
+          "papel": {
+            "type": "string",
+            "enum": [
+              "CLIENTE",
+              "FUNCIONARIO",
+              "ADMIN"
+            ]
+          },
+          "ativo": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Tag": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "nome": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nome"
+        ]
+      },
+      "Cafe": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "preco": {
+            "type": "number"
+          },
+          "imagemUrl": {
+            "type": "string"
+          },
+          "ativo": {
+            "type": "boolean"
+          },
+          "criadoEm": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "atualizadoEm": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "descricao",
+          "preco",
+          "imagemUrl",
+          "ativo",
+          "criadoEm",
+          "atualizadoEm",
+          "tags"
+        ]
+      },
+      "CriarCafeDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "example": "Cold Brew",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "descricao": {
+            "type": "string",
+            "example": "Café extraído a frio por 12 horas",
+            "minLength": 2,
+            "maxLength": 255
+          },
+          "preco": {
+            "type": "number",
+            "example": 12.5,
+            "minimum": 0.01,
+            "maximum": 9999.99
+          },
+          "imagemUrl": {
+            "type": "string",
+            "example": "/img/cold-brew.png",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "tagIds": {
+            "description": "IDs das tags (GET /tags).",
+            "example": [
+              1,
+              2
+            ],
+            "uniqueItems": true,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "nome",
+          "descricao",
+          "preco",
+          "imagemUrl"
+        ]
+      },
+      "AtualizarCafeDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "example": "Cold Brew",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "descricao": {
+            "type": "string",
+            "example": "Café extraído a frio por 12 horas",
+            "minLength": 2,
+            "maxLength": 255
+          },
+          "preco": {
+            "type": "number",
+            "example": 12.5,
+            "minimum": 0.01,
+            "maximum": 9999.99
+          },
+          "imagemUrl": {
+            "type": "string",
+            "example": "/img/cold-brew.png",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "tagIds": {
+            "description": "IDs das tags (GET /tags).",
+            "example": [
+              1,
+              2
+            ],
+            "uniqueItems": true,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "ativo": {
+            "type": "boolean",
+            "description": "Reativa ou desativa o café no catálogo."
+          }
+        }
+      },
+      "CriarTagDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "example": "Sem lactose",
+            "minLength": 2,
+            "maxLength": 30
+          }
+        },
+        "required": [
+          "nome"
+        ]
+      },
+      "FormaPagamento": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "codigo": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "ativo": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "codigo",
+          "descricao",
+          "ativo"
+        ]
+      },
+      "ItemPedidoDto": {
+        "type": "object",
+        "properties": {
+          "cafeId": {
+            "type": "number",
+            "example": 1,
+            "minimum": 1
+          },
+          "quantidade": {
+            "type": "number",
+            "example": 2,
+            "minimum": 1,
+            "maximum": 99
+          }
+        },
+        "required": [
+          "cafeId",
+          "quantidade"
+        ]
+      },
+      "EnderecoDto": {
+        "type": "object",
+        "properties": {
+          "cep": {
+            "type": "string",
+            "description": "Aceita com ou sem hífen.",
+            "example": "09390-120",
+            "pattern": "^\\d{8}$"
+          },
+          "logradouro": {
+            "type": "string",
+            "example": "Av. Antônia Rosa Fioravanti",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "numero": {
+            "type": "string",
+            "example": "804",
+            "minLength": 1,
+            "maxLength": 10
+          },
+          "complemento": {
+            "type": "string",
+            "example": "Fatec Mauá",
+            "maxLength": 60
+          },
+          "bairro": {
+            "type": "string",
+            "example": "Centro",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "cidade": {
+            "type": "string",
+            "example": "Mauá",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "uf": {
+            "type": "string",
+            "example": "SP",
+            "enum": [
+              "AC",
+              "AL",
+              "AP",
+              "AM",
+              "BA",
+              "CE",
+              "DF",
+              "ES",
+              "GO",
+              "MA",
+              "MT",
+              "MS",
+              "MG",
+              "PA",
+              "PB",
+              "PR",
+              "PE",
+              "PI",
+              "RJ",
+              "RN",
+              "RS",
+              "RO",
+              "RR",
+              "SC",
+              "SP",
+              "SE",
+              "TO"
+            ]
+          }
+        },
+        "required": [
+          "cep",
+          "logradouro",
+          "numero",
+          "bairro",
+          "cidade",
+          "uf"
+        ]
+      },
+      "CriarPedidoDto": {
+        "type": "object",
+        "properties": {
+          "formaPagamentoId": {
+            "type": "number",
+            "description": "ID de GET /formas-pagamento.",
+            "example": 1,
+            "minimum": 1
+          },
+          "itens": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemPedidoDto"
+            }
+          },
+          "endereco": {
+            "$ref": "#/components/schemas/EnderecoDto"
+          }
+        },
+        "required": [
+          "formaPagamentoId",
+          "itens",
+          "endereco"
+        ]
+      },
+      "FormaPagamentoResumoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "example": 1
+          },
+          "codigo": {
+            "type": "string",
+            "example": "CARTAO_CREDITO"
+          },
+          "descricao": {
+            "type": "string",
+            "example": "Cartão de crédito"
+          }
+        },
+        "required": [
+          "id",
+          "codigo",
+          "descricao"
+        ]
+      },
+      "ItemPedidoRespostaDto": {
+        "type": "object",
+        "properties": {
+          "cafeId": {
+            "type": "number",
+            "example": 6
+          },
+          "nome": {
+            "type": "string",
+            "example": "Latte"
+          },
+          "imagemUrl": {
+            "type": "string",
+            "example": "/img/latte.png"
+          },
+          "quantidade": {
+            "type": "number",
+            "example": 2
+          },
+          "precoUnitario": {
+            "type": "number",
+            "description": "Preço no momento da compra.",
+            "example": 9.9
+          },
+          "subtotal": {
+            "type": "number",
+            "example": 19.8
+          }
+        },
+        "required": [
+          "cafeId",
+          "nome",
+          "imagemUrl",
+          "quantidade",
+          "precoUnitario",
+          "subtotal"
+        ]
+      },
+      "EnderecoRespostaDto": {
+        "type": "object",
+        "properties": {
+          "cep": {
+            "type": "string",
+            "example": "09390120"
+          },
+          "logradouro": {
+            "type": "string",
+            "example": "Av. Antônia Rosa Fioravanti"
+          },
+          "numero": {
+            "type": "string",
+            "example": "804"
+          },
+          "complemento": {
+            "type": "string",
+            "nullable": true,
+            "example": "Fatec Mauá"
+          },
+          "bairro": {
+            "type": "string",
+            "example": "Centro"
+          },
+          "cidade": {
+            "type": "string",
+            "example": "Mauá"
+          },
+          "uf": {
+            "type": "string",
+            "example": "SP"
+          }
+        },
+        "required": [
+          "cep",
+          "logradouro",
+          "numero",
+          "complemento",
+          "bairro",
+          "cidade",
+          "uf"
+        ]
+      },
+      "ClienteResumoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "example": 3
+          },
+          "nome": {
+            "type": "string",
+            "example": "Cliente Exemplo"
+          },
+          "email": {
+            "type": "string",
+            "example": "cliente@email.com"
+          },
+          "telefone": {
+            "type": "string",
+            "nullable": true,
+            "example": "11988887777"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "email",
+          "telefone"
+        ]
+      },
+      "PedidoRespostaDto": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "description": "Identificador público do pedido (usado nas URLs).",
+            "format": "uuid"
+          },
+          "status": {
+            "enum": [
+              "CONFIRMADO",
+              "EM_PREPARO",
+              "SAIU_PARA_ENTREGA",
+              "ENTREGUE",
+              "CANCELADO"
+            ],
+            "type": "string",
+            "example": "CONFIRMADO"
+          },
+          "criadoEm": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "subtotal": {
+            "type": "number",
+            "description": "Soma dos itens.",
+            "example": 29.7
+          },
+          "taxaEntrega": {
+            "type": "number",
+            "example": 3.5
+          },
+          "total": {
+            "type": "number",
+            "description": "subtotal + taxaEntrega.",
+            "example": 33.2
+          },
+          "previsaoMin": {
+            "type": "number",
+            "description": "Previsão de entrega em minutos.",
+            "example": 20
+          },
+          "previsaoMax": {
+            "type": "number",
+            "example": 30
+          },
+          "formaPagamento": {
+            "$ref": "#/components/schemas/FormaPagamentoResumoDto"
+          },
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemPedidoRespostaDto"
+            }
+          },
+          "endereco": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EnderecoRespostaDto"
+              }
+            ]
+          },
+          "cliente": {
+            "description": "Só aparece para a equipe (FUNCIONARIO/ADMIN).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClienteResumoDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "codigo",
+          "status",
+          "criadoEm",
+          "subtotal",
+          "taxaEntrega",
+          "total",
+          "previsaoMin",
+          "previsaoMax",
+          "formaPagamento",
+          "itens",
+          "endereco"
+        ]
+      },
+      "AlteradoPorDto": {
+        "type": "object",
+        "properties": {
+          "papel": {
+            "enum": [
+              "CLIENTE",
+              "FUNCIONARIO",
+              "ADMIN"
+            ],
+            "type": "string",
+            "example": "FUNCIONARIO"
+          },
+          "id": {
+            "type": "number",
+            "example": 2
+          },
+          "nome": {
+            "type": "string",
+            "example": "Barista Exemplo"
+          }
+        },
+        "required": [
+          "papel",
+          "id",
+          "nome"
+        ]
+      },
+      "EventoHistoricoDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "CONFIRMADO",
+              "EM_PREPARO",
+              "SAIU_PARA_ENTREGA",
+              "ENTREGUE",
+              "CANCELADO"
+            ],
+            "type": "string",
+            "example": "EM_PREPARO"
+          },
+          "statusAnterior": {
+            "nullable": true,
+            "enum": [
+              "CONFIRMADO",
+              "EM_PREPARO",
+              "SAIU_PARA_ENTREGA",
+              "ENTREGUE",
+              "CANCELADO"
+            ],
+            "type": "string",
+            "example": "CONFIRMADO"
+          },
+          "dataHora": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "alteradoPor": {
+            "nullable": true,
+            "description": "Quem fez a mudança (vem do log de auditoria).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AlteradoPorDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "statusAnterior",
+          "dataHora",
+          "alteradoPor"
+        ]
+      },
+      "AtualizarStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "CONFIRMADO",
+              "EM_PREPARO",
+              "SAIU_PARA_ENTREGA",
+              "ENTREGUE",
+              "CANCELADO"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    }
+  }
+}

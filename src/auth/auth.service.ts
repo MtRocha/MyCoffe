@@ -4,10 +4,9 @@ import * as bcrypt from 'bcryptjs';
 import { Usuario } from '../usuarios/usuario.entity';
 import {
   paraUsuarioResposta,
-  UsuarioResposta,
   UsuariosService,
 } from '../usuarios/usuarios.service';
-import { CadastroDto, LoginDto } from './dto/auth.dto';
+import { CadastroDto, LoginDto, RespostaAutenticacaoDto } from './dto/auth.dto';
 
 export const CUSTO_BCRYPT = 12;
 
@@ -16,10 +15,7 @@ export interface PayloadJwt {
   papel: Usuario['papel'];
 }
 
-export interface RespostaAutenticacao {
-  accessToken: string;
-  usuario: UsuarioResposta;
-}
+export type RespostaAutenticacao = RespostaAutenticacaoDto;
 
 @Injectable()
 export class AuthService {

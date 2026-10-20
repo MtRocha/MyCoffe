@@ -8,6 +8,7 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
+import { UsuarioRespostaDto } from '../../usuarios/dto/usuario-resposta.dto';
 
 const normalizarEmail = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().toLowerCase() : value;
@@ -42,6 +43,13 @@ export class CadastroDto {
   )
   @Matches(/^\d{10,11}$/, { message: 'telefone deve ter 10 ou 11 dígitos' })
   telefone?: string;
+}
+
+export class RespostaAutenticacaoDto {
+  /** JWT para o header Authorization: Bearer <token>. */
+  accessToken: string;
+
+  usuario: UsuarioRespostaDto;
 }
 
 export class LoginDto {
