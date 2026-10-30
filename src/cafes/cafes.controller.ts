@@ -9,8 +9,12 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { TAMANHO_MAXIMO_IMAGEM } from '../armazenamento/armazenamento.service';
 import {
   Papeis,
   Publico,
@@ -25,6 +29,39 @@ import {
   FiltroCafesDto,
   RecomendacoesDto,
 } from './dto/cafe.dto';
+
+const campoImagem = () =>
+  FileInterceptor('imagem', { limits: { fileSize: TAMANHO_MAXIMO_IMAGEM } });
+
+const corpoMultipart = (obrigatorio: boolean) =>
+  ApiBody({
+    schema: {
+      type: 'object',
+      required: obrigatorio ? ['nome', 'descricao', 'preco', 'imagem'] : [],
+      properties: {
+        nome: { type: 'string', example: 'Cold Brew' },
+        descricao: {
+          type: 'string',
+          example: 'Café extraído a frio por 12 horas',
+        },
+        preco: { type: 'number', example: 12.5 },
+        imagem: {
+          type: 'string',
+          format: 'binary',
+          description: 'JPEG, PNG ou WebP, até 5 MB',
+        },
+        tagIds: { type: 'array', items: { type: 'integer' }, example: [1, 2] },
+        ...(obrigatorio
+          ? {}
+          : {
+              ativo: {
+                type: 'boolean',
+                description: 'Reativa/desativa o café',
+              },
+            }),
+      },
+    },
+  });
 
 @ApiTags('Catálogo')
 @Controller('cafes')
@@ -61,23 +98,31 @@ export class CafesController {
 
   @ApiBearerAuth()
   @Papeis('ADMIN')
+  @ApiConsumes('multipart/form-data', 'application/json')
+  @corpoMultipart(true)
+  @UseInterceptors(campoImagem())
   @Post()
   criar(
     @Body() dto: CriarCafeDto,
     @UsuarioAtual() usuario: UsuarioAutenticado,
+    @UploadedFile() imagem?: Express.Multer.File,
   ) {
-    return this.cafes.criar(dto, usuario.id);
+    return this.cafes.criar(dto, usuario.id, imagem);
   }
 
   @ApiBearerAuth()
   @Papeis('ADMIN')
+  @ApiConsumes('multipart/form-data', 'application/json')
+  @corpoMultipart(false)
+  @UseInterceptors(campoImagem())
   @Patch(':id')
   atualizar(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: AtualizarCafeDto,
     @UsuarioAtual() usuario: UsuarioAutenticado,
+    @UploadedFile() imagem?: Express.Multer.File,
   ) {
-    return this.cafes.atualizar(id, dto, usuario.id);
+    return this.cafes.atualizar(id, dto, usuario.id, imagem);
   }
 
   /** Exclusão lógica (ativo = 0). */
