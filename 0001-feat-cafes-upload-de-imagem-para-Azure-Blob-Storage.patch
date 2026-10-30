@@ -1,0 +1,873 @@
+From d9bcd0bce68236513633131292860ce71fa712ce Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 28 Oct 2026 21:33:37 -0300
+Subject: [PATCH] feat(cafes): upload de imagem para Azure Blob Storage
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+POST /cafes e PATCH /cafes/:id aceitam multipart/form-data com o campo
+"imagem" (JPEG/PNG/WebP, até 5 MB). O arquivo vai para o container via
+AZURE_SAS_URL e a URL do blob (sem SAS) é gravada em imagem_url.
+
+- ArmazenamentoService valida tipo e assinatura do arquivo
+- remove blob órfão se o save falhar e a imagem antiga na troca
+- imagemUrl em JSON continua aceito (compatibilidade)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01VJZSn7kKfmVeTUS2Sa4bDH
+---
+ .env.example                                  |   4 +
+ package-lock.json                             | 243 ++++++++++++++++++
+ package.json                                  |   2 +
+ src/armazenamento/armazenamento.module.ts     |   8 +
+ .../armazenamento.service.spec.ts             |  48 ++++
+ src/armazenamento/armazenamento.service.ts    |  90 +++++++
+ src/cafes/cafes.controller.ts                 |  51 +++-
+ src/cafes/cafes.module.ts                     |   3 +-
+ src/cafes/cafes.service.ts                    |  75 ++++--
+ src/cafes/dto/cafe.dto.ts                     |  33 ++-
+ 10 files changed, 530 insertions(+), 27 deletions(-)
+ create mode 100644 src/armazenamento/armazenamento.module.ts
+ create mode 100644 src/armazenamento/armazenamento.service.spec.ts
+ create mode 100644 src/armazenamento/armazenamento.service.ts
+
+diff --git a/.env.example b/.env.example
+index b4d74cc..4699b42 100644
+--- a/.env.example
++++ b/.env.example
+@@ -28,3 +28,7 @@ CORS_ORIGIN=
+ # Senha aplicada pelo "npm run db:setup" aos usuários de exemplo do script SQL
+ # (admin@mycoffee.com, barista@mycoffee.com, cliente@email.com). Só para desenvolvimento.
+ SEED_SENHA_PADRAO=MyCoffee@2026
++
++# Azure Blob Storage das imagens dos cafés: SAS URL do container (permissões mínimas: r, a, c, w, d).
++# Nunca versione o valor real; no Azure App Service configure em "Variáveis de ambiente".
++AZURE_SAS_URL=https://mycoffestorage.blob.core.windows.net/images?sp=racwd&st=...&sig=...
+diff --git a/package-lock.json b/package-lock.json
+index 83f2822..b103e86 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -9,6 +9,7 @@
+       "version": "1.0.0",
+       "license": "UNLICENSED",
+       "dependencies": {
++        "@azure/storage-blob": "^12.34.0",
+         "@nestjs/common": "^11.0.1",
+         "@nestjs/config": "^4.0.4",
+         "@nestjs/core": "^11.0.1",
+@@ -41,6 +42,7 @@
+         "@types/jest": "^30.0.0",
+         "@types/js-yaml": "^4.0.9",
+         "@types/mssql": "^12.3.0",
++        "@types/multer": "^2.3.0",
+         "@types/node": "^24.0.0",
+         "@types/passport-jwt": "^4.0.1",
+         "@types/supertest": "^7.0.0",
+@@ -269,6 +271,22 @@
+         "node": ">=22.0.0"
+       }
+     },
++    "node_modules/@azure/core-http-compat": {
++      "version": "2.5.0",
++      "resolved": "https://registry.npmjs.org/@azure/core-http-compat/-/core-http-compat-2.5.0.tgz",
++      "integrity": "sha512-BoSmXPx2er1Ai+wKlDvj29jIQespCNBwEmKyZVHO2kEFsWbGjAjwMCGzug3DJM5/QYIV3vej0S1zcU5bq9fa8w==",
++      "license": "MIT",
++      "dependencies": {
++        "@azure/abort-controller": "^2.1.2"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      },
++      "peerDependencies": {
++        "@azure/core-client": "^1.10.0",
++        "@azure/core-rest-pipeline": "^1.22.0"
++      }
++    },
+     "node_modules/@azure/core-lro": {
+       "version": "2.7.2",
+       "resolved": "https://registry.npmjs.org/@azure/core-lro/-/core-lro-2.7.2.tgz",
+@@ -349,6 +367,19 @@
+         "node": ">=22.0.0"
+       }
+     },
++    "node_modules/@azure/core-xml": {
++      "version": "1.6.0",
++      "resolved": "https://registry.npmjs.org/@azure/core-xml/-/core-xml-1.6.0.tgz",
++      "integrity": "sha512-e7lX/dk//F6Qf7BB6PTY4+p2yuOQtyOeHGyapYHNwqSp2OnYpwQt49A/Nin2XmKBQ69pwagR4k/lQBq8lbHQkA==",
++      "license": "MIT",
++      "dependencies": {
++        "fast-xml-parser": "^5.5.9",
++        "tslib": "^2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
+     "node_modules/@azure/identity": {
+       "version": "4.14.0",
+       "resolved": "https://registry.npmjs.org/@azure/identity/-/identity-4.14.0.tgz",
+@@ -469,6 +500,52 @@
+         "node": ">=0.8.0"
+       }
+     },
++    "node_modules/@azure/storage-blob": {
++      "version": "12.34.0",
++      "resolved": "https://registry.npmjs.org/@azure/storage-blob/-/storage-blob-12.34.0.tgz",
++      "integrity": "sha512-cXDTCAMwDx8Ng9yUe82kOOd2kPnZ8AQqe4FkLMcpaQ3Mvr3/PXVdvRhyP0FtY5/U5Oh6JGk3EcEibaFOymRLFw==",
++      "license": "MIT",
++      "dependencies": {
++        "@azure/abort-controller": "^2.1.2",
++        "@azure/core-auth": "^1.9.0",
++        "@azure/core-client": "^1.9.3",
++        "@azure/core-http-compat": "^2.2.0",
++        "@azure/core-lro": "^2.2.0",
++        "@azure/core-paging": "^1.6.2",
++        "@azure/core-rest-pipeline": "^1.19.1",
++        "@azure/core-tracing": "^1.2.0",
++        "@azure/core-util": "^1.11.0",
++        "@azure/core-xml": "^1.4.5",
++        "@azure/logger": "^1.1.4",
++        "@azure/storage-common": "^12.5.0",
++        "apache-arrow": "^21.1.0",
++        "events": "^3.0.0",
++        "tslib": "^2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@azure/storage-common": {
++      "version": "12.5.0",
++      "resolved": "https://registry.npmjs.org/@azure/storage-common/-/storage-common-12.5.0.tgz",
++      "integrity": "sha512-bttzuhQiCIwrkzjPDA+AtAR7dg19L/CC6ztcqJ5LfvWpXuys9mHp0UQ0udYnoUvv9SCT9KTR5kqFvFr0e6k0lQ==",
++      "license": "MIT",
++      "dependencies": {
++        "@azure/abort-controller": "^2.1.2",
++        "@azure/core-auth": "^1.9.0",
++        "@azure/core-http-compat": "^2.4.0",
++        "@azure/core-rest-pipeline": "^1.24.0",
++        "@azure/core-tracing": "^1.2.0",
++        "@azure/core-util": "^1.11.0",
++        "@azure/logger": "^1.1.4",
++        "events": "^3.3.0",
++        "tslib": "^2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
+     "node_modules/@babel/code-frame": {
+       "version": "7.29.7",
+       "resolved": "https://registry.npmjs.org/@babel/code-frame/-/code-frame-7.29.7.tgz",
+@@ -2946,6 +3023,18 @@
+         "url": "https://paulmillr.com/funding/"
+       }
+     },
++    "node_modules/@nodable/entities": {
++      "version": "3.1.0",
++      "resolved": "https://registry.npmjs.org/@nodable/entities/-/entities-3.1.0.tgz",
++      "integrity": "sha512-LsS/DjHr+uDM647Gru/cA8+J3a3HfhttwCKLyuoyN7yXTFCxKBtSgMQBvrW9yNPa2/zDRUNuGPaH5QUFoa4arQ==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/nodable"
++        }
++      ],
++      "license": "MIT"
++    },
+     "node_modules/@paralleldrive/cuid2": {
+       "version": "2.3.1",
+       "resolved": "https://registry.npmjs.org/@paralleldrive/cuid2/-/cuid2-2.3.1.tgz",
+@@ -3603,6 +3692,16 @@
+         "tedious": "*"
+       }
+     },
++    "node_modules/@types/multer": {
++      "version": "2.3.0",
++      "resolved": "https://registry.npmjs.org/@types/multer/-/multer-2.3.0.tgz",
++      "integrity": "sha512-i7STIm9V4K2MPH4ZYMtrZAwNxs3kglk2LgleaTuB9pUXgADBcQYQuYMd7+6xgTIxfoggIkFA/DkkvycdZpIARA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/express": "*"
++      }
++    },
+     "node_modules/@types/node": {
+       "version": "24.19.2",
+       "resolved": "https://registry.npmjs.org/@types/node/-/node-24.19.2.tgz",
+@@ -4774,6 +4873,42 @@
+         "url": "https://github.com/sponsors/jonschlinkert"
+       }
+     },
++    "node_modules/anynum": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/anynum/-/anynum-1.0.1.tgz",
++      "integrity": "sha512-N6//FLET/tXYNM/F6ABca1oH6fWB+KlTt909Le28WMDBk8oaT4vY17DCrwg2MvmuqUKt3Ni4N5dGJ/EoBgcO6A==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/NaturalIntelligence"
++        }
++      ],
++      "license": "MIT"
++    },
++    "node_modules/apache-arrow": {
++      "version": "21.2.0",
++      "resolved": "https://registry.npmjs.org/apache-arrow/-/apache-arrow-21.2.0.tgz",
++      "integrity": "sha512-Hxe6Agq26gQOM954qpzYSllJBPJl+e16U5CkfuMUhLrNba+5nKkttIVlflaovN6oaTratqMGAO8H5u/aNhmHWQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@types/node": "^25.2.0",
++        "flatbuffers": "^25.1.24",
++        "json-with-bigint": "^3.5.3",
++        "tslib": "^2.6.2"
++      },
++      "bin": {
++        "arrow2csv": "bin/arrow2csv.js"
++      }
++    },
++    "node_modules/apache-arrow/node_modules/@types/node": {
++      "version": "25.9.9",
++      "resolved": "https://registry.npmjs.org/@types/node/-/node-25.9.9.tgz",
++      "integrity": "sha512-b4e2xxj/yMeT2hNlD6x7zNFiQK2Dlmkb9CQ6v3/1G2RezKN4YS2lcEv8lzGm1mhs4f2lM4yNAMI/zUDBZBBt7w==",
++      "license": "MIT",
++      "dependencies": {
++        "undici-types": ">=7.24.0 <7.24.7"
++      }
++    },
+     "node_modules/append-field": {
+       "version": "1.0.0",
+       "resolved": "https://registry.npmjs.org/append-field/-/append-field-1.0.0.tgz",
+@@ -6411,6 +6546,45 @@
+       ],
+       "license": "BSD-3-Clause"
+     },
++    "node_modules/fast-xml-builder": {
++      "version": "1.3.1",
++      "resolved": "https://registry.npmjs.org/fast-xml-builder/-/fast-xml-builder-1.3.1.tgz",
++      "integrity": "sha512-pIM/1n3ntFXKYrUZwW7QCK0gAW7XY+wzj1YMIV3tLDvPj/V+zTGJK5e3/4WJfwj0qWw2ElNXiTixda/R+3YSug==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/NaturalIntelligence"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "path-expression-matcher": "^1.6.2",
++        "xml-naming": "^0.3.0"
++      }
++    },
++    "node_modules/fast-xml-parser": {
++      "version": "5.11.2",
++      "resolved": "https://registry.npmjs.org/fast-xml-parser/-/fast-xml-parser-5.11.2.tgz",
++      "integrity": "sha512-R9iDuNrQYeQut46cn2r2wHKn4HYzVDvDm5J1wW+koZewykv0yuO2HChTYeZtrULyHIDM9cj9TUXloCsueCQUog==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/NaturalIntelligence"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "@nodable/entities": "^3.0.1",
++        "fast-xml-builder": "^1.2.0",
++        "is-unsafe": "^2.0.0",
++        "path-expression-matcher": "^1.6.2",
++        "strnum": "^2.4.2",
++        "xml-naming": "^0.3.0"
++      },
++      "bin": {
++        "fxparser": "src/cli/cli.js"
++      }
++    },
+     "node_modules/fb-watchman": {
+       "version": "2.0.4",
+       "resolved": "https://registry.npmjs.org/fb-watchman/-/fb-watchman-2.0.4.tgz",
+@@ -6521,6 +6695,12 @@
+         "node": ">=16"
+       }
+     },
++    "node_modules/flatbuffers": {
++      "version": "25.9.23",
++      "resolved": "https://registry.npmjs.org/flatbuffers/-/flatbuffers-25.9.23.tgz",
++      "integrity": "sha512-MI1qs7Lo4Syw0EOzUl0xjs2lsoeqFku44KpngfIduHBYvzm8h2+7K8YMQh1JtVVVrUvhLpNwqVi4DERegUJhPQ==",
++      "license": "Apache-2.0"
++    },
+     "node_modules/flatted": {
+       "version": "3.4.4",
+       "resolved": "https://registry.npmjs.org/flatted/-/flatted-3.4.4.tgz",
+@@ -7282,6 +7462,18 @@
+         "url": "https://github.com/sponsors/sindresorhus"
+       }
+     },
++    "node_modules/is-unsafe": {
++      "version": "2.0.2",
++      "resolved": "https://registry.npmjs.org/is-unsafe/-/is-unsafe-2.0.2.tgz",
++      "integrity": "sha512-HgbIHPBH0KHHCcjLfGsCvhtPTVxjaAZlXjwdz7/GQC40SjSe4sfQsar8J5VFo8JOSbarkpV0OLG95bbaNd9aAQ==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/NaturalIntelligence"
++        }
++      ],
++      "license": "MIT"
++    },
+     "node_modules/is-wsl": {
+       "version": "3.1.1",
+       "resolved": "https://registry.npmjs.org/is-wsl/-/is-wsl-3.1.1.tgz",
+@@ -8055,6 +8247,12 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/json-with-bigint": {
++      "version": "3.5.12",
++      "resolved": "https://registry.npmjs.org/json-with-bigint/-/json-with-bigint-3.5.12.tgz",
++      "integrity": "sha512-uwbF/wSSuOgC7qqlq27Xp5B6a2MHVug3t0idZdTqu0JnlFvgJuH7ju+KAk/J06C7GfhoYy2gnb9wz2INqcne7w==",
++      "license": "MIT"
++    },
+     "node_modules/json5": {
+       "version": "2.2.3",
+       "resolved": "https://registry.npmjs.org/json5/-/json5-2.2.3.tgz",
+@@ -9163,6 +9361,21 @@
+         "node": ">=8"
+       }
+     },
++    "node_modules/path-expression-matcher": {
++      "version": "1.6.2",
++      "resolved": "https://registry.npmjs.org/path-expression-matcher/-/path-expression-matcher-1.6.2.tgz",
++      "integrity": "sha512-enSlaiat05iasnzmgNxRj8reFdj3puY2QpNgP1aPIaVfT6nn9ICuPoFlKHk8EN22HcwewshO+mN2DGbkCEOtqQ==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/NaturalIntelligence"
++        }
++      ],
++      "license": "MIT",
++      "engines": {
++        "node": ">=14.0.0"
++      }
++    },
+     "node_modules/path-key": {
+       "version": "3.1.1",
+       "resolved": "https://registry.npmjs.org/path-key/-/path-key-3.1.1.tgz",
+@@ -10090,6 +10303,21 @@
+         "url": "https://github.com/sponsors/sindresorhus"
+       }
+     },
++    "node_modules/strnum": {
++      "version": "2.5.1",
++      "resolved": "https://registry.npmjs.org/strnum/-/strnum-2.5.1.tgz",
++      "integrity": "sha512-UM4nTLWzQiDBseVxUGxN0wJzIk0UU89Qi7pKXz9qISo+lhviJikTuikBsK/oFRlpvYHvSdz0TVoLyQ+sEpYwxA==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/NaturalIntelligence"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "anynum": "^1.0.1"
++      }
++    },
+     "node_modules/strtok3": {
+       "version": "10.6.2",
+       "resolved": "https://registry.npmjs.org/strtok3/-/strtok3-10.6.2.tgz",
+@@ -11660,6 +11888,21 @@
+         "url": "https://github.com/sponsors/sindresorhus"
+       }
+     },
++    "node_modules/xml-naming": {
++      "version": "0.3.0",
++      "resolved": "https://registry.npmjs.org/xml-naming/-/xml-naming-0.3.0.tgz",
++      "integrity": "sha512-ghig2TBE/H11aOVgmahA3MhimvkBr6JIYknH/Dhdk10nXwdbIqBJsbfMxpvFPG8bAw77gN29aQWvKpmVoPlvPQ==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/NaturalIntelligence"
++        }
++      ],
++      "license": "MIT",
++      "engines": {
++        "node": ">=16.0.0"
++      }
++    },
+     "node_modules/y18n": {
+       "version": "5.0.8",
+       "resolved": "https://registry.npmjs.org/y18n/-/y18n-5.0.8.tgz",
+diff --git a/package.json b/package.json
+index 99ffb06..b51bd3e 100644
+--- a/package.json
++++ b/package.json
+@@ -25,6 +25,7 @@
+     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand"
+   },
+   "dependencies": {
++    "@azure/storage-blob": "^12.34.0",
+     "@nestjs/common": "^11.0.1",
+     "@nestjs/config": "^4.0.4",
+     "@nestjs/core": "^11.0.1",
+@@ -57,6 +58,7 @@
+     "@types/jest": "^30.0.0",
+     "@types/js-yaml": "^4.0.9",
+     "@types/mssql": "^12.3.0",
++    "@types/multer": "^2.3.0",
+     "@types/node": "^24.0.0",
+     "@types/passport-jwt": "^4.0.1",
+     "@types/supertest": "^7.0.0",
+diff --git a/src/armazenamento/armazenamento.module.ts b/src/armazenamento/armazenamento.module.ts
+new file mode 100644
+index 0000000..98490bd
+--- /dev/null
++++ b/src/armazenamento/armazenamento.module.ts
+@@ -0,0 +1,8 @@
++import { Module } from '@nestjs/common';
++import { ArmazenamentoService } from './armazenamento.service';
++
++@Module({
++  providers: [ArmazenamentoService],
++  exports: [ArmazenamentoService],
++})
++export class ArmazenamentoModule {}
+diff --git a/src/armazenamento/armazenamento.service.spec.ts b/src/armazenamento/armazenamento.service.spec.ts
+new file mode 100644
+index 0000000..f866833
+--- /dev/null
++++ b/src/armazenamento/armazenamento.service.spec.ts
+@@ -0,0 +1,48 @@
++import {
++  BadRequestException,
++  ServiceUnavailableException,
++} from '@nestjs/common';
++import { plainToInstance } from 'class-transformer';
++import { validate } from 'class-validator';
++import { CriarCafeDto } from '../cafes/dto/cafe.dto';
++import { ArmazenamentoService } from './armazenamento.service';
++
++const arquivo = (mimetype: string, bytes: number[]) =>
++  ({ mimetype, buffer: Buffer.from(bytes) }) as Express.Multer.File;
++
++describe('ArmazenamentoService', () => {
++  const servico = new ArmazenamentoService();
++  afterEach(() => delete process.env.AZURE_SAS_URL);
++
++  it('rejeita tipo não suportado', async () => {
++    await expect(
++      servico.enviarImagem(arquivo('application/pdf', [1, 2, 3])),
++    ).rejects.toBeInstanceOf(BadRequestException);
++  });
++
++  it('rejeita Content-Type falso (assinatura não confere)', async () => {
++    await expect(
++      servico.enviarImagem(arquivo('image/png', [0, 1, 2, 3, 4, 5, 6, 7])),
++    ).rejects.toBeInstanceOf(BadRequestException);
++  });
++
++  it('responde 503 sem AZURE_SAS_URL', async () => {
++    await expect(
++      servico.enviarImagem(arquivo('image/jpeg', [0xff, 0xd8, 0xff, 0xe0])),
++    ).rejects.toBeInstanceOf(ServiceUnavailableException);
++  });
++});
++
++describe('CriarCafeDto via multipart (tudo texto)', () => {
++  it('converte preco e tagIds e dispensa imagemUrl', async () => {
++    const dto = plainToInstance(CriarCafeDto, {
++      nome: 'Cold Brew',
++      descricao: 'Extraído a frio',
++      preco: '12.50',
++      tagIds: '1,2',
++    });
++    expect(await validate(dto)).toHaveLength(0);
++    expect(dto.preco).toBe(12.5);
++    expect(dto.tagIds).toEqual([1, 2]);
++  });
++});
+diff --git a/src/armazenamento/armazenamento.service.ts b/src/armazenamento/armazenamento.service.ts
+new file mode 100644
+index 0000000..08803ca
+--- /dev/null
++++ b/src/armazenamento/armazenamento.service.ts
+@@ -0,0 +1,90 @@
++import {
++  BadRequestException,
++  Injectable,
++  Logger,
++  ServiceUnavailableException,
++} from '@nestjs/common';
++import { ContainerClient } from '@azure/storage-blob';
++import { randomUUID } from 'crypto';
++
++/** Tipos aceitos e a extensão gravada no blob. */
++const TIPOS_IMAGEM: Record<string, string> = {
++  'image/jpeg': 'jpg',
++  'image/png': 'png',
++  'image/webp': 'webp',
++};
++
++export const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024; // 5 MB
++
++/** Assinaturas (magic numbers) para não confiar só no Content-Type enviado. */
++function assinaturaConfere(tipo: string, b: Buffer): boolean {
++  switch (tipo) {
++    case 'image/jpeg':
++      return b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
++    case 'image/png':
++      return b
++        .subarray(0, 8)
++        .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
++    case 'image/webp':
++      return (
++        b.subarray(0, 4).toString('ascii') === 'RIFF' &&
++        b.subarray(8, 12).toString('ascii') === 'WEBP'
++      );
++    default:
++      return false;
++  }
++}
++
++/** Armazenamento de imagens no Azure Blob Storage (container via SAS URL). */
++@Injectable()
++export class ArmazenamentoService {
++  private readonly logger = new Logger(ArmazenamentoService.name);
++  private container?: ContainerClient;
++
++  private obterContainer(): ContainerClient {
++    if (this.container) return this.container;
++    const sasUrl = process.env.AZURE_SAS_URL;
++    if (!sasUrl) {
++      throw new ServiceUnavailableException(
++        'Armazenamento de imagens não configurado (AZURE_SAS_URL)',
++      );
++    }
++    this.container = new ContainerClient(sasUrl);
++    return this.container;
++  }
++
++  /** Envia a imagem e devolve a URL pública do blob (sem o token SAS). */
++  async enviarImagem(arquivo: Express.Multer.File, pasta = 'cafes') {
++    const extensao = TIPOS_IMAGEM[arquivo.mimetype];
++    if (!extensao || !assinaturaConfere(arquivo.mimetype, arquivo.buffer)) {
++      throw new BadRequestException(
++        'Imagem inválida: envie um arquivo JPEG, PNG ou WebP',
++      );
++    }
++    const blob = this.obterContainer().getBlockBlobClient(
++      `${pasta}/${randomUUID()}.${extensao}`,
++    );
++    await blob.uploadData(arquivo.buffer, {
++      blobHTTPHeaders: {
++        blobContentType: arquivo.mimetype,
++        blobCacheControl: 'public, max-age=31536000, immutable',
++      },
++    });
++    return blob.url.split('?')[0];
++  }
++
++  /** Remove um blob criado por nós; ignora URLs de outra origem. Nunca lança. */
++  async remover(url?: string | null): Promise<void> {
++    try {
++      if (!url || !process.env.AZURE_SAS_URL) return;
++      const container = this.obterContainer();
++      const base = container.url.split('?')[0] + '/';
++      if (!url.startsWith(base)) return;
++      await container
++        .getBlockBlobClient(decodeURIComponent(url.slice(base.length)))
++        .deleteIfExists();
++    } catch (erro) {
++      this.logger.warn(`Falha ao remover imagem ${url}: ${String(erro)}`);
++    }
++  }
++}
+diff --git a/src/cafes/cafes.controller.ts b/src/cafes/cafes.controller.ts
+index 15ec0e1..3094894 100644
+--- a/src/cafes/cafes.controller.ts
++++ b/src/cafes/cafes.controller.ts
+@@ -9,8 +9,12 @@ import {
+   Patch,
+   Post,
+   Query,
++  UploadedFile,
++  UseInterceptors,
+ } from '@nestjs/common';
+-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
++import { FileInterceptor } from '@nestjs/platform-express';
++import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
++import { TAMANHO_MAXIMO_IMAGEM } from '../armazenamento/armazenamento.service';
+ import {
+   Papeis,
+   Publico,
+@@ -26,6 +30,39 @@ import {
+   RecomendacoesDto,
+ } from './dto/cafe.dto';
+ 
++const campoImagem = () =>
++  FileInterceptor('imagem', { limits: { fileSize: TAMANHO_MAXIMO_IMAGEM } });
++
++const corpoMultipart = (obrigatorio: boolean) =>
++  ApiBody({
++    schema: {
++      type: 'object',
++      required: obrigatorio ? ['nome', 'descricao', 'preco', 'imagem'] : [],
++      properties: {
++        nome: { type: 'string', example: 'Cold Brew' },
++        descricao: {
++          type: 'string',
++          example: 'Café extraído a frio por 12 horas',
++        },
++        preco: { type: 'number', example: 12.5 },
++        imagem: {
++          type: 'string',
++          format: 'binary',
++          description: 'JPEG, PNG ou WebP, até 5 MB',
++        },
++        tagIds: { type: 'array', items: { type: 'integer' }, example: [1, 2] },
++        ...(obrigatorio
++          ? {}
++          : {
++              ativo: {
++                type: 'boolean',
++                description: 'Reativa/desativa o café',
++              },
++            }),
++      },
++    },
++  });
++
+ @ApiTags('Catálogo')
+ @Controller('cafes')
+ export class CafesController {
+@@ -61,23 +98,31 @@ export class CafesController {
+ 
+   @ApiBearerAuth()
+   @Papeis('ADMIN')
++  @ApiConsumes('multipart/form-data', 'application/json')
++  @corpoMultipart(true)
++  @UseInterceptors(campoImagem())
+   @Post()
+   criar(
+     @Body() dto: CriarCafeDto,
+     @UsuarioAtual() usuario: UsuarioAutenticado,
++    @UploadedFile() imagem?: Express.Multer.File,
+   ) {
+-    return this.cafes.criar(dto, usuario.id);
++    return this.cafes.criar(dto, usuario.id, imagem);
+   }
+ 
+   @ApiBearerAuth()
+   @Papeis('ADMIN')
++  @ApiConsumes('multipart/form-data', 'application/json')
++  @corpoMultipart(false)
++  @UseInterceptors(campoImagem())
+   @Patch(':id')
+   atualizar(
+     @Param('id', ParseIntPipe) id: number,
+     @Body() dto: AtualizarCafeDto,
+     @UsuarioAtual() usuario: UsuarioAutenticado,
++    @UploadedFile() imagem?: Express.Multer.File,
+   ) {
+-    return this.cafes.atualizar(id, dto, usuario.id);
++    return this.cafes.atualizar(id, dto, usuario.id, imagem);
+   }
+ 
+   /** Exclusão lógica (ativo = 0). */
+diff --git a/src/cafes/cafes.module.ts b/src/cafes/cafes.module.ts
+index c56ddee..5910178 100644
+--- a/src/cafes/cafes.module.ts
++++ b/src/cafes/cafes.module.ts
+@@ -1,12 +1,13 @@
+ import { Module } from '@nestjs/common';
+ import { TypeOrmModule } from '@nestjs/typeorm';
++import { ArmazenamentoModule } from '../armazenamento/armazenamento.module';
+ import { Cafe } from './cafe.entity';
+ import { CafesController, TagsController } from './cafes.controller';
+ import { CafesService } from './cafes.service';
+ import { Tag } from './tag.entity';
+ 
+ @Module({
+-  imports: [TypeOrmModule.forFeature([Cafe, Tag])],
++  imports: [TypeOrmModule.forFeature([Cafe, Tag]), ArmazenamentoModule],
+   controllers: [CafesController, TagsController],
+   providers: [CafesService],
+ })
+diff --git a/src/cafes/cafes.service.ts b/src/cafes/cafes.service.ts
+index 9683710..453f87a 100644
+--- a/src/cafes/cafes.service.ts
++++ b/src/cafes/cafes.service.ts
+@@ -6,6 +6,7 @@ import {
+ } from '@nestjs/common';
+ import { InjectRepository } from '@nestjs/typeorm';
+ import { EntityManager, In, Repository } from 'typeorm';
++import { ArmazenamentoService } from '../armazenamento/armazenamento.service';
+ import { AuditoriaService } from '../auditoria/auditoria.service';
+ import { ehViolacaoDeUnicidade } from '../common/erros-sql';
+ import { Cafe } from './cafe.entity';
+@@ -28,6 +29,7 @@ export class CafesService {
+     @InjectRepository(Cafe) private readonly cafes: Repository<Cafe>,
+     @InjectRepository(Tag) private readonly tags: Repository<Tag>,
+     private readonly auditoria: AuditoriaService,
++    private readonly armazenamento: ArmazenamentoService,
+   ) {}
+ 
+   /** Catálogo da Home. Por padrão só cafés ativos. */
+@@ -94,36 +96,67 @@ export class CafesService {
+     return ids.map((id) => cafes.find((c) => c.id === id)!);
+   }
+ 
+-  async criar(dto: CriarCafeDto, usuarioId: number): Promise<Cafe> {
+-    const id = await this.salvarComTratamento(usuarioId, async (m) => {
+-      const { tagIds, ...dados } = dto;
+-      const cafe = m.create(Cafe, {
+-        ...dados,
+-        ativo: true,
+-        tags: await this.carregarTags(m, tagIds ?? []),
++  async criar(
++    dto: CriarCafeDto,
++    usuarioId: number,
++    imagem?: Express.Multer.File,
++  ): Promise<Cafe> {
++    if (!imagem && !dto.imagemUrl) {
++      throw new BadRequestException('Envie a imagem do café no campo "imagem"');
++    }
++    const urlEnviada = imagem
++      ? await this.armazenamento.enviarImagem(imagem)
++      : undefined;
++    try {
++      const id = await this.salvarComTratamento(usuarioId, async (m) => {
++        const { tagIds, ...dados } = dto;
++        const cafe = m.create(Cafe, {
++          ...dados,
++          imagemUrl: urlEnviada ?? dados.imagemUrl,
++          ativo: true,
++          tags: await this.carregarTags(m, tagIds ?? []),
++        });
++        return (await m.save(cafe)).id;
+       });
+-      return (await m.save(cafe)).id;
+-    });
+-    return this.buscar(id, true);
++      return await this.buscar(id, true);
++    } catch (erro) {
++      await this.armazenamento.remover(urlEnviada); // não deixa blob órfão
++      throw erro;
++    }
+   }
+ 
+   async atualizar(
+     id: number,
+     dto: AtualizarCafeDto,
+     usuarioId: number,
++    imagem?: Express.Multer.File,
+   ): Promise<Cafe> {
+-    await this.salvarComTratamento(usuarioId, async (m) => {
+-      const cafe = await m.findOne(Cafe, {
+-        where: { id },
+-        relations: { tags: true },
++    const urlEnviada = imagem
++      ? await this.armazenamento.enviarImagem(imagem)
++      : undefined;
++    let urlAnterior: string | undefined;
++    try {
++      await this.salvarComTratamento(usuarioId, async (m) => {
++        const cafe = await m.findOne(Cafe, {
++          where: { id },
++          relations: { tags: true },
++        });
++        if (!cafe) throw new NotFoundException('Café não encontrado');
++        const { tagIds, ...dados } = dto;
++        urlAnterior = cafe.imagemUrl;
++        Object.assign(cafe, dados);
++        if (urlEnviada) cafe.imagemUrl = urlEnviada;
++        if (tagIds) cafe.tags = await this.carregarTags(m, tagIds);
++        await m.save(cafe);
++        return id;
+       });
+-      if (!cafe) throw new NotFoundException('Café não encontrado');
+-      const { tagIds, ...dados } = dto;
+-      Object.assign(cafe, dados);
+-      if (tagIds) cafe.tags = await this.carregarTags(m, tagIds);
+-      await m.save(cafe);
+-      return id;
+-    });
++    } catch (erro) {
++      await this.armazenamento.remover(urlEnviada);
++      throw erro;
++    }
++    if (urlEnviada && urlAnterior !== urlEnviada) {
++      await this.armazenamento.remover(urlAnterior); // troca de imagem
++    }
+     return this.buscar(id, true);
+   }
+ 
+diff --git a/src/cafes/dto/cafe.dto.ts b/src/cafes/dto/cafe.dto.ts
+index 343e175..a0373d7 100644
+--- a/src/cafes/dto/cafe.dto.ts
++++ b/src/cafes/dto/cafe.dto.ts
+@@ -15,6 +15,25 @@ import {
+   Min,
+ } from 'class-validator';
+ 
++/** multipart/form-data entrega tudo como texto: aceita "1,2", "[1,2]" ou campo repetido. */
++const paraListaDeNumeros = ({ value }: { value: unknown }) => {
++  if (value === undefined || value === null || value === '') return undefined;
++  let lista: unknown[];
++  if (Array.isArray(value)) lista = value;
++  else if (typeof value === 'string' && value.trim().startsWith('[')) {
++    try {
++      lista = JSON.parse(value) as unknown[];
++    } catch {
++      return value;
++    }
++  } else if (typeof value === 'string') lista = value.split(',');
++  else if (typeof value === 'number') lista = [value];
++  else return value;
++  return lista.map((v) =>
++    typeof v === 'string' && v.trim() !== '' ? Number(v) : v,
++  );
++};
++
+ const aparar = ({ value }: { value: unknown }) =>
+   typeof value === 'string' ? value.trim() : value;
+ 
+@@ -32,18 +51,25 @@ export class CriarCafeDto {
+   descricao: string;
+ 
+   /** @example 12.5 */
++  @Type(() => Number)
+   @IsNumber({ maxDecimalPlaces: 2 })
+   @Min(0.01)
+   @Max(9999.99)
+   preco: number;
+ 
+-  /** @example "/img/cold-brew.png" */
++  /**
++   * URL da imagem. Normalmente preenchida pela API a partir do arquivo enviado
++   * no campo `imagem`; só informe aqui se a imagem já estiver hospedada.
++   * @example "https://mycoffestorage.blob.core.windows.net/images/cafes/cold-brew.png"
++   */
++  @IsOptional()
+   @IsString()
+   @Length(1, 255)
+-  imagemUrl: string;
++  imagemUrl?: string;
+ 
+   /** IDs das tags (GET /tags). @example [1, 2] */
+   @IsOptional()
++  @Transform(paraListaDeNumeros)
+   @IsArray()
+   @ArrayMaxSize(20)
+   @ArrayUnique()
+@@ -54,6 +80,9 @@ export class CriarCafeDto {
+ export class AtualizarCafeDto extends PartialType(CriarCafeDto) {
+   /** Reativa ou desativa o café no catálogo. */
+   @IsOptional()
++  @Transform(({ value }: { value: unknown }) =>
++    value === 'true' ? true : value === 'false' ? false : value,
++  )
+   @IsBoolean()
+   ativo?: boolean;
+ }
+-- 
+2.43.0
+
