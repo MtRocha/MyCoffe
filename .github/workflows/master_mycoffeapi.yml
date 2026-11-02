@@ -24,6 +24,11 @@ jobs:
           node-version: '22.x'
           cache: 'npm'
 
+      # O package-lock.json é gerado com npm 11 (Node 24 local); o npm 10 do Node 22
+      # recusa esse lock no `npm ci` ("Missing: webpack ... from lock file").
+      - name: Use npm 11
+        run: npm install -g npm@11
+
       - name: Install, build and unit test
         run: |
           npm ci

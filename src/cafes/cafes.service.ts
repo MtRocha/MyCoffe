@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
+import { ArmazenamentoService } from '../armazenamento/armazenamento.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { ehViolacaoDeUnicidade } from '../common/erros-sql';
 import { Cafe } from './cafe.entity';
@@ -28,6 +29,7 @@ export class CafesService {
     @InjectRepository(Cafe) private readonly cafes: Repository<Cafe>,
     @InjectRepository(Tag) private readonly tags: Repository<Tag>,
     private readonly auditoria: AuditoriaService,
+    private readonly armazenamento: ArmazenamentoService,
   ) {}
 
   /** Catálogo da Home. Por padrão só cafés ativos. */
@@ -94,36 +96,67 @@ export class CafesService {
     return ids.map((id) => cafes.find((c) => c.id === id)!);
   }
 
-  async criar(dto: CriarCafeDto, usuarioId: number): Promise<Cafe> {
-    const id = await this.salvarComTratamento(usuarioId, async (m) => {
-      const { tagIds, ...dados } = dto;
-      const cafe = m.create(Cafe, {
-        ...dados,
-        ativo: true,
-        tags: await this.carregarTags(m, tagIds ?? []),
+  async criar(
+    dto: CriarCafeDto,
+    usuarioId: number,
+    imagem?: Express.Multer.File,
+  ): Promise<Cafe> {
+    if (!imagem && !dto.imagemUrl) {
+      throw new BadRequestException('Envie a imagem do café no campo "imagem"');
+    }
+    const urlEnviada = imagem
+      ? await this.armazenamento.enviarImagem(imagem)
+      : undefined;
+    try {
+      const id = await this.salvarComTratamento(usuarioId, async (m) => {
+        const { tagIds, ...dados } = dto;
+        const cafe = m.create(Cafe, {
+          ...dados,
+          imagemUrl: urlEnviada ?? dados.imagemUrl,
+          ativo: true,
+          tags: await this.carregarTags(m, tagIds ?? []),
+        });
+        return (await m.save(cafe)).id;
       });
-      return (await m.save(cafe)).id;
-    });
-    return this.buscar(id, true);
+      return await this.buscar(id, true);
+    } catch (erro) {
+      await this.armazenamento.remover(urlEnviada); // não deixa blob órfão
+      throw erro;
+    }
   }
 
   async atualizar(
     id: number,
     dto: AtualizarCafeDto,
     usuarioId: number,
+    imagem?: Express.Multer.File,
   ): Promise<Cafe> {
-    await this.salvarComTratamento(usuarioId, async (m) => {
-      const cafe = await m.findOne(Cafe, {
-        where: { id },
-        relations: { tags: true },
+    const urlEnviada = imagem
+      ? await this.armazenamento.enviarImagem(imagem)
+      : undefined;
+    let urlAnterior: string | undefined;
+    try {
+      await this.salvarComTratamento(usuarioId, async (m) => {
+        const cafe = await m.findOne(Cafe, {
+          where: { id },
+          relations: { tags: true },
+        });
+        if (!cafe) throw new NotFoundException('Café não encontrado');
+        const { tagIds, ...dados } = dto;
+        urlAnterior = cafe.imagemUrl;
+        Object.assign(cafe, dados);
+        if (urlEnviada) cafe.imagemUrl = urlEnviada;
+        if (tagIds) cafe.tags = await this.carregarTags(m, tagIds);
+        await m.save(cafe);
+        return id;
       });
-      if (!cafe) throw new NotFoundException('Café não encontrado');
-      const { tagIds, ...dados } = dto;
-      Object.assign(cafe, dados);
-      if (tagIds) cafe.tags = await this.carregarTags(m, tagIds);
-      await m.save(cafe);
-      return id;
-    });
+    } catch (erro) {
+      await this.armazenamento.remover(urlEnviada);
+      throw erro;
+    }
+    if (urlEnviada && urlAnterior !== urlEnviada) {
+      await this.armazenamento.remover(urlAnterior); // troca de imagem
+    }
     return this.buscar(id, true);
   }
 
