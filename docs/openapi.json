@@ -287,9 +287,84 @@
         "requestBody": {
           "required": true,
           "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "nome",
+                  "descricao",
+                  "preco",
+                  "imagem"
+                ],
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "example": "Cold Brew"
+                  },
+                  "descricao": {
+                    "type": "string",
+                    "example": "Café extraído a frio por 12 horas"
+                  },
+                  "preco": {
+                    "type": "number",
+                    "example": 12.5
+                  },
+                  "imagem": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "JPEG, PNG ou WebP, até 5 MB"
+                  },
+                  "tagIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      1,
+                      2
+                    ]
+                  }
+                }
+              }
+            },
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CriarCafeDto"
+                "type": "object",
+                "required": [
+                  "nome",
+                  "descricao",
+                  "preco",
+                  "imagem"
+                ],
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "example": "Cold Brew"
+                  },
+                  "descricao": {
+                    "type": "string",
+                    "example": "Café extraído a frio por 12 horas"
+                  },
+                  "preco": {
+                    "type": "number",
+                    "example": 12.5
+                  },
+                  "imagem": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "JPEG, PNG ou WebP, até 5 MB"
+                  },
+                  "tagIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      1,
+                      2
+                    ]
+                  }
+                }
               }
             }
           }
@@ -450,9 +525,82 @@
         "requestBody": {
           "required": true,
           "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [],
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "example": "Cold Brew"
+                  },
+                  "descricao": {
+                    "type": "string",
+                    "example": "Café extraído a frio por 12 horas"
+                  },
+                  "preco": {
+                    "type": "number",
+                    "example": 12.5
+                  },
+                  "imagem": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "JPEG, PNG ou WebP, até 5 MB"
+                  },
+                  "tagIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      1,
+                      2
+                    ]
+                  },
+                  "ativo": {
+                    "type": "boolean",
+                    "description": "Reativa/desativa o café"
+                  }
+                }
+              }
+            },
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AtualizarCafeDto"
+                "type": "object",
+                "required": [],
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "example": "Cold Brew"
+                  },
+                  "descricao": {
+                    "type": "string",
+                    "example": "Café extraído a frio por 12 horas"
+                  },
+                  "preco": {
+                    "type": "number",
+                    "example": 12.5
+                  },
+                  "imagem": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "JPEG, PNG ou WebP, até 5 MB"
+                  },
+                  "tagIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      1,
+                      2
+                    ]
+                  },
+                  "ativo": {
+                    "type": "boolean",
+                    "description": "Reativa/desativa o café"
+                  }
+                }
               }
             }
           }
@@ -1171,100 +1319,6 @@
           "atualizadoEm",
           "tags"
         ]
-      },
-      "CriarCafeDto": {
-        "type": "object",
-        "properties": {
-          "nome": {
-            "type": "string",
-            "example": "Cold Brew",
-            "minLength": 2,
-            "maxLength": 60
-          },
-          "descricao": {
-            "type": "string",
-            "example": "Café extraído a frio por 12 horas",
-            "minLength": 2,
-            "maxLength": 255
-          },
-          "preco": {
-            "type": "number",
-            "example": 12.5,
-            "minimum": 0.01,
-            "maximum": 9999.99
-          },
-          "imagemUrl": {
-            "type": "string",
-            "example": "/img/cold-brew.png",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "tagIds": {
-            "description": "IDs das tags (GET /tags).",
-            "example": [
-              1,
-              2
-            ],
-            "uniqueItems": true,
-            "maxItems": 20,
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
-          }
-        },
-        "required": [
-          "nome",
-          "descricao",
-          "preco",
-          "imagemUrl"
-        ]
-      },
-      "AtualizarCafeDto": {
-        "type": "object",
-        "properties": {
-          "nome": {
-            "type": "string",
-            "example": "Cold Brew",
-            "minLength": 2,
-            "maxLength": 60
-          },
-          "descricao": {
-            "type": "string",
-            "example": "Café extraído a frio por 12 horas",
-            "minLength": 2,
-            "maxLength": 255
-          },
-          "preco": {
-            "type": "number",
-            "example": 12.5,
-            "minimum": 0.01,
-            "maximum": 9999.99
-          },
-          "imagemUrl": {
-            "type": "string",
-            "example": "/img/cold-brew.png",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "tagIds": {
-            "description": "IDs das tags (GET /tags).",
-            "example": [
-              1,
-              2
-            ],
-            "uniqueItems": true,
-            "maxItems": 20,
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
-          },
-          "ativo": {
-            "type": "boolean",
-            "description": "Reativa ou desativa o café no catálogo."
-          }
-        }
       },
       "CriarTagDto": {
         "type": "object",
